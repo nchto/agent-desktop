@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Трекер привычек</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;600;700&display=swap">
+<style>
+/* Layout: one narrow column of habit cards; each card = name row, 7-day check row, 12-week heatmap */
+:root {
+  --bg: #eef1ec;
+  --surface: #ffffff;
+  --ink: #1d2a22;
+  --muted: #64746a;
+  --line: #d6ddd6;
+  --accent: #2f6b4a;
+  --accent-ink: #ffffff;
+  --empty: #e3e8e2;
+  --danger: #b23a2e;
+  --display: "Unbounded", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121814; --surface: #1b231e; --ink: #e4ece6; --muted: #92a398; --line: #2c3830;
+    --accent: #6fc196; --accent-ink: #0d1a12; --empty: #26302a; --danger: #ef7d70; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121814; --surface: #1b231e; --ink: #e4ece6; --muted: #92a398; --line: #2c3830;
+  --accent: #6fc196; --accent-ink: #0d1a12; --empty: #26302a; --danger: #ef7d70; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; line-height: 1.1; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.date { color: var(--muted); margin-top: 4px; }
+.today { text-align: right; }
+.today b { font-family: var(--display); font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+.today span { display: block; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.bar { height: 6px; border-radius: 3px; background: var(--empty); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+form.add { display: flex; flex-wrap: wrap; gap: 8px; }
+input[type="text"], textarea {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; min-width: 0;
+}
+form.add input { flex: 1 1 220px; }
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 10px 14px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.list { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.name { font-weight: 700; font-size: 1.05rem; min-width: 0; overflow-wrap: anywhere; }
+.stats { color: var(--muted); font-size: 0.85rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.day button { width: 100%; max-width: 44px; aspect-ratio: 1; padding: 0; border-radius: 50%; background: var(--empty); border: 2px solid transparent; font-size: 0.85rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day button.on { background: var(--accent); color: var(--accent-ink); }
+.day.is-today { color: var(--ink); font-weight: 700; }
+.day.is-today button { border-color: var(--accent); }
+.heat { display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-flow: column; grid-template-rows: repeat(7, auto); gap: 3px; max-width: 300px; }
+.heat i { aspect-ratio: 1; border-radius: 3px; background: var(--empty); }
+.heat i.on { background: var(--accent); }
+.heat i.future { background: transparent; }
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.link { background: none; border: none; padding: 4px 0; color: var(--muted); text-decoration: underline; font-size: 0.8rem; }
+.link.danger { color: var(--danger); }
+.empty { text-align: center; color: var(--muted); padding: 32px 16px; border: 1px dashed var(--line); border-radius: 14px; }
+.note { font-size: 0.85rem; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+details { border-top: 1px solid var(--line); padding-top: 16px; }
+summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+.data { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.data textarea { width: 100%; min-height: 110px; font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.msg { font-size: 0.85rem; color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Привычки</h1>
+      <div class="date" id="date"></div>
+    </div>
+    <div class="today"><b id="doneCount">0/0</b><span>сделано сегодня</span></div>
+  </header>
+  <div class="bar"><i id="bar"></i></div>
+
+  <div class="note" id="sampleNote" hidden>
+    <span>Это примеры привычек, чтобы было видно, как всё работает.</span>
+    <button class="link" id="clearSamples" type="button">Убрать примеры</button>
+  </div>
+
+  <form class="add" id="addForm">
+    <input type="text" id="newName" maxlength="60" placeholder="Новая привычка, например «Читать 20 минут»" aria-label="Название привычки">
+    <button class="primary" type="submit">Добавить</button>
+  </form>
+
+  <div class="list" id="list"></div>
+
+  <details>
+    <summary>Резервная копия данных</summary>
+    <div class="data">
+      <div>Данные хранятся только в этом браузере. Скопируйте их, чтобы перенести на другое устройство, или вставьте сохранённую копию.</div>
+      <textarea id="dataBox" aria-label="Данные в формате JSON"></textarea>
+      <div class="row">
+        <button type="button" id="exportBtn">Скопировать данные</button>
+        <button type="button" id="importBtn">Загрузить из поля</button>
+        <span class="msg" id="dataMsg"></span>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+(function () {
+  var KEY = "habit-tracker-v1";
+  var DAY_NAMES = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  var state;
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function keyOf(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function addDays(d, n) { var x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; }
+  function today() { var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+  function uid() { return Math.random().toString(36).slice(2, 10); }
+
+  function sample() {
+    var t = today(), log = {}, habits = [
+      { id: uid(), name: "Выпить 2 литра воды", rate: 0.85 },
+      { id: uid(), name: "Прогулка 30 минут", rate: 0.6 },
+      { id: uid(), name: "Читать перед сном", rate: 0.45 }
+    ];
+    habits.forEach(function (h, idx) {
+      log[h.id] = {};
+      for (var i = 1; i < 84; i++) {
+        if (Math.random() < h.rate) log[h.id][keyOf(addDays(t, -i))] = true;
+      }
+      if (idx === 0) log[h.id][keyOf(t)] = true;
+      delete h.rate;
+    });
+    return { habits: habits, log: log, sample: true };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var s = JSON.parse(raw); if (s && Array.isArray(s.habits) && s.log) return s; }
+    } catch (e) {}
+    return sample();
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function done(id, d) { return !!(state.log[id] && state.log[id][keyOf(d)]); }
+
+  function streak(id) {
+    var d = today();
+    if (!done(id, d)) d = addDays(d, -1);
+    var n = 0;
+    while (done(id, d)) { n++; d = addDays(d, -1); }
+    return n;
+  }
+  function last30(id) {
+    var t = today(), n = 0;
+    for (var i = 0; i < 30; i++) if (done(id, addDays(t, -i))) n++;
+    return n;
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function render() {
+    var t = today();
+    var dateStr = t.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+    document.getElementById("date").textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+    document.getElementById("sampleNote").hidden = !state.sample;
+
+    var total = state.habits.length, doneToday = 0;
+    state.habits.forEach(function (h) { if (done(h.id, t)) doneToday++; });
+    document.getElementById("doneCount").textContent = doneToday + "/" + total;
+    document.getElementById("bar").style.width = total ? (doneToday / total * 100) + "%" : "0";
+
+    var list = document.getElementById("list");
+    list.textContent = "";
+    if (!total) {
+      list.appendChild(el("div", "empty", "Пока нет привычек. Добавьте первую в поле выше."));
+      return;
+    }
+
+    state.habits.forEach(function (h) {
+      var card = el("div", "card");
+      var top = el("div", "top");
+      top.appendChild(el("div", "name", h.name));
+      var stats = el("div", "stats");
+      var s = streak(h.id);
+      stats.innerHTML = "Серия: <b>" + s + "</b> дн. · 30 дн.: <b>" + last30(h.id) + "</b>";
+      top.appendChild(stats);
+      card.appendChild(top);
+
+      var week = el("div", "week");
+      for (var i = 6; i >= 0; i--) {
+        (function (d) {
+          var cell = el("div", "day" + (i === 0 ? " is-today" : ""));
+          cell.appendChild(el("span", null, DAY_NAMES[d.getDay()]));
+          var b = el("button", done(h.id, d) ? "on" : "", String(d.getDate()));
+          b.type = "button";
+          b.setAttribute("aria-pressed", done(h.id, d));
+          b.setAttribute("aria-label", h.name + ", " + d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }));
+          b.addEventListener("click", function () { toggle(h.id, d); });
+          cell.appendChild(b);
+          week.appendChild(cell);
+        })(addDays(t, -i));
+      }
+      card.appendChild(week);
+
+      var heat = el("div", "heat");
+      heat.setAttribute("aria-hidden", "true");
+      var offset = (t.getDay() + 6) % 7;
+      var start = addDays(t, -(11 * 7 + offset));
+      for (var k = 0; k < 84; k++) {
+        var d = addDays(start, k);
+        var c = el("i", d > t ? "future" : (done(h.id, d) ? "on" : ""));
+        c.title = d.toLocaleDateString("ru-RU");
+        heat.appendChild(c);
+      }
+      card.appendChild(heat);
+
+      var foot = el("div", "foot");
+      foot.appendChild(el("span", null, "Последние 12 недель"));
+      var del = el("button", "link", "Удалить");
+      del.type = "button";
+      del.addEventListener("click", function () {
+        if (del.dataset.armed) { remove(h.id); return; }
+        del.dataset.armed = "1";
+        del.className = "link danger";
+        del.textContent = "Точно удалить? Нажмите ещё раз";
+        setTimeout(function () { if (del.isConnected) { delete del.dataset.armed; del.className = "link"; del.textContent = "Удалить"; } }, 4000);
+      });
+      foot.appendChild(del);
+      card.appendChild(foot);
+      list.appendChild(card);
+    });
+  }
+
+  function toggle(id, d) {
+    var k = keyOf(d);
+    state.log[id] = state.log[id] || {};
+    if (state.log[id][k]) delete state.log[id][k]; else state.log[id][k] = true;
+    save(); render();
+  }
+  function remove(id) {
+    state.habits = state.habits.filter(function (h) { return h.id !== id; });
+    delete state.log[id];
+    save(); render();
+  }
+
+  document.getElementById("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var input = document.getElementById("newName");
+    var name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    var h = { id: uid(), name: name };
+    state.habits.push(h);
+    state.log[h.id] = {};
+    input.value = "";
+    save(); render();
+  });
+
+  document.getElementById("clearSamples").addEventListener("click", function () {
+    state = { habits: [], log: {} };
+    save(); render();
+  });
+
+  var box = document.getElementById("dataBox"), msg = document.getElementById("dataMsg");
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var text = JSON.stringify({ habits: state.habits, log: state.log });
+    box.value = text;
+    function fallback() { box.focus(); box.select(); msg.textContent = "Данные выделены, скопируйте их вручную"; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { msg.textContent = "Скопировано"; }, fallback);
+    } else fallback();
+  });
+  document.getElementById("importBtn").addEventListener("click", function () {
+    try {
+      var s = JSON.parse(box.value);
+      if (!s || !Array.isArray(s.habits) || typeof s.log !== "object") throw new Error();
+      state = { habits: s.habits, log: s.log };
+      save(); render();
+      msg.textContent = "Загружено привычек: " + s.habits.length;
+    } catch (e) {
+      msg.textContent = "Не получилось прочитать данные. Вставьте текст, скопированный кнопкой «Скопировать данные».";
+    }
+  });
+
+  state = load();
+  render();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) render(); });
+})();
+</script>
+</body>
+</html>
